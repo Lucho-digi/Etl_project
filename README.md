@@ -19,7 +19,7 @@ S3 (JSON) → Airflow → Bronze → PySpark (Silver) → dbt (Silver) → dbt (
 ## Project Structure
 
 ```
-qversity-data-2026-<city>-<firstname><lastname>/
+qversity-data-2026-montevideo-lucianoduarte/
 ├── dags/                     # Airflow DAG definitions
 │   └── example_dag.py        # Placeholder pipeline DAG
 ├── spark/                    # PySpark scripts (NEW in v2)
@@ -43,6 +43,9 @@ qversity-data-2026-<city>-<firstname><lastname>/
 ├── .pre-commit-config.yaml   # Code quality hooks
 └── README.md                 # This file
 ```
+## Diagram of the Architecture
+
+![image](Diagram.png)
 
 ## Quick Start
 
@@ -56,8 +59,8 @@ qversity-data-2026-<city>-<firstname><lastname>/
 
 1. **Clone the repository and setup environment**:
 ```bash
-git clone <your-repo-url>
-cd qversity-data-2026-<city>-<name>
+git clone https://github.com/Lucho-digi/Lucho-digi-qversity-data-2026-montevideo-lucianoduarte.git
+cd qversity-data-2026-montevideo-lucianoduarte
 cp env.example .env
 ```
 
@@ -75,7 +78,7 @@ docker compose ps
 
 5. **Trigger the pipeline** (once you've built it):
 ```bash
-docker compose exec airflow airflow dags trigger qversity_fintech_pipeline
+docker compose exec airflow airflow dags trigger bronze_dag
 ```
 
 ## Access Points
@@ -97,10 +100,10 @@ docker compose logs -f airflow
 docker compose exec airflow airflow dags list
 
 # Trigger DAG
-docker compose exec airflow airflow dags trigger qversity_fintech_pipeline
+docker compose exec airflow airflow dags trigger <dagname>
 
 # Check DAG run status
-docker compose exec airflow airflow dags list-runs -d qversity_fintech_pipeline
+docker compose exec airflow airflow dags list-runs -d <dagname>
 ```
 
 ### PySpark
