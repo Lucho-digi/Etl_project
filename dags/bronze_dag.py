@@ -15,16 +15,15 @@ KEY = os.getenv("S3_KEY")
 URL = f"https://{BUCKET}.s3.amazonaws.com/{KEY}"
 HOST = os.getenv("POSTGRES_HOST", "postgres")
 DB = os.getenv("POSTGRES_DB")
-USR = os.getenv("POSTGRES_USER")
+USER = os.getenv("POSTGRES_USER")
 PASS = os.getenv("POSTGRES_PASSWORD")
 BATCH_SIZE = 1000
 
-# function to create the bronze Schema and Table
 def create_bronze_schema():
   conn = psycopg2.connect(
     host=HOST,
     database=DB,
-    user=USR,
+    user=USER,
     password=PASS
   )
   cursor = conn.cursor()
@@ -45,7 +44,7 @@ def load_data():
   conn = psycopg2.connect(
     host=HOST,
     database=DB,
-    user=USR,
+    user=USER,
     password=PASS
   )
   cursor = conn.cursor()
@@ -65,8 +64,8 @@ def load_data():
   except requests.exceptions.RequestException as e:
     logging.error(f"HTTP error: {e}")
   except Exception as e:
-      logging.error(f"DB error: {e}")
-      conn.rollback()
+    logging.error(f"DB error: {e}")
+    conn.rollback()
   finally:
     cursor.close()
     conn.close()
