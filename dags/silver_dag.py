@@ -25,9 +25,6 @@ def create_silver_schema():
   cursor.close()
   conn.close()
 
-# Ins't necesary to create the staging tables like bronze because them will be created by 
-# Spark if them doesn't exist when we write to with write.jdbc
-
 default_args = {
   "owner": "qversity",
   "depends_on_past": False,
@@ -54,8 +51,8 @@ create_silver_schema_task = PythonOperator(
 )
 
 dedup_task = BashOperator(
-  task_id="dedup_raw_data",
-  bash_command="spark-submit --packages org.postgresql:postgresql:42.6.2 /opt/airflow/spark/dedup_customers.py",
+  task_id="dedup_task",
+  bash_command="spark-submit --packages org.postgresql:postgresql:42.6.2 /opt/airflow/spark/dedup.py",
   dag=dag
 )
 
@@ -65,34 +62,28 @@ flatten_accounts_task = BashOperator(
   dag=dag
 )
 
+flatten_loans_task = BashOperator(
+  task_id="flatten_loans",
+  bash_command="spark-submit --packages org.postgresql:postgresql:42.6.2 /opt/airflow/spark/flatten_loans.py",
+  dag=dag
+)
+
 flatten_transactions_task = BashOperator(
   task_id="flatten_transactions",
   bash_command="spark-submit --packages org.postgresql:postgresql:42.6.2 /opt/airflow/spark/flatten_transactions.py",
   dag=dag
 )
 
-flatten_loans_task = BashOperator(
-  task_id="flatten_loans",
-  bash_command="spark-submit --packages org.postgresql:postgresql:42.6.2 /opt/airflow/spark/flatten_loans.py",
-  dag=dag
-) 
-
-create_silver_schema_task >> dedup_task
-
-dedup_task >> flatten_accounts_task
-dedup_task >> flatten_transactions_task
-dedup_task >> flatten_loans_task
-
 dbt_run_task = BashOperator(
   task_id="dbt_run",
-  bash_command="cd /opt/airflow/dbt && dbt run ",
+  bash_command="cd /opt/airflow/dbt && dbt run --target-path /tmp/dbt-target",
   dag=dag
 )
 
 dbt_test_task = BashOperator(
   task_id="dbt_test",
-  bash_command="cd /opt/airflow/dbt && dbt test --log-path /tmp/dbt_logs; rc=$?; cat /tmp/dbt_logs/dbt.log 2>/dev/null || true; exit $rc",
+  bash_command="cd /opt/airflow/dbt && dbt test --target-path /tmp/dbt-target",
   dag=dag
 )
 
-[flatten_accounts_task, flatten_transactions_task, flatten_loans_task] >> dbt_run_task >> dbt_test_task
+create_silver_schema_task >> dedup_task >> [flatten_accounts_task, flatten_loans_task, flatten_transactions_task] >> dbt_run_task >> dbt_test_task

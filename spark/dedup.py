@@ -29,27 +29,23 @@ except Exception as e:
 
 df = spark.read.jdbc(url=JDBC_URL, table="bronze.raw_fintech_data", properties=JDBC_PROPERTIES)
 
-
 df = df.withColumn("customer_id", get_json_object(col("data"), "$.customer_id"))
 
-# Deduplication strategy: prefer records with fewer null values in key fields.
-# If two records have the same null count, we keep the most recently loaded one
-# using load_timestamp as tiebreaker. This ensures we retain the most complete
-# and up-to-date version of each customer.
 null_count_expr = reduce(operator.add, [
     when(get_json_object(col("data"), f"$.{field}").isNull(), lit(1)).otherwise(lit(0))
     for field in ["email", "phone_number", "date_of_birth", "address", "kyc_status", "risk_score"]
 ])
 
 df = df.withColumn("null_count", null_count_expr)
+df = df.withColumn("registration_date", get_json_object(col("data"), "$.registration_date"))
 
 window = Window.partitionBy("customer_id").orderBy(
-  col("null_count").asc(),       
-  col("load_timestamp").desc()   
+  col("null_count").asc(),
+  col("registration_date").asc()
 )
 
 deduplicated_df = df.withColumn("rn", row_number().over(window)) \
   .filter(col("rn") == 1) \
-  .drop("rn", "null_count", "customer_id")  
+  .drop("rn", "null_count", "customer_id", "registration_date")
 
 deduplicated_df.write.jdbc(url=JDBC_URL, table="silver.stg_raw_deduplicated", mode="overwrite", properties=JDBC_PROPERTIES)

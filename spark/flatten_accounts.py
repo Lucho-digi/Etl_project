@@ -2,7 +2,10 @@ import os
 import logging
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, explode, from_json, schema_of_json
+from pyspark.sql.functions import col, explode, from_json, row_number, when, lit
+from pyspark.sql.window import Window
+from functools import reduce
+import operator
 
 POSTGRES_HOST = os.getenv("POSTGRES_HOST")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
@@ -17,7 +20,6 @@ JDBC_PROPERTIES = {
   "driver": "org.postgresql.Driver"
 }
 
-
 try:
  spark = SparkSession.builder.appName("FlattenAccounts") \
     .config("spark.jars.packages", "org.postgresql:postgresql:42.6.20") \
@@ -28,14 +30,10 @@ except Exception as e:
 
 df = spark.read.jdbc(url=JDBC_URL, table="silver.stg_raw_deduplicated", properties=JDBC_PROPERTIES)
 
-# Parse data column from STRING to struct
-sample = df.select("data").first()[0]
-json_schema = schema_of_json(sample)
+json_schema = spark.read.json(df.select("data").rdd.map(lambda r: r[0])).schema
 df = df.withColumn("data", from_json(col("data").cast("string"), json_schema))
 
 accounts_df = df.select(
-  col("id"),
-  col("load_timestamp"),
   col("data.customer_id").alias("customer_id"),
   explode(col("data.accounts")).alias("accounts")
 ).select(
@@ -51,5 +49,20 @@ accounts_df = df.select(
   col("accounts.branch_code")
 )
 
-# mode = overwrite because is a staging table
+null_count_expr = reduce(operator.add, [
+    when(col(c).isNull(), lit(1)).otherwise(lit(0))
+    for c in accounts_df.columns
+])
+
+accounts_df = accounts_df.withColumn("null_count", null_count_expr)
+
+window = Window.partitionBy("account_id").orderBy(
+    col("null_count").asc(),
+    col("opened_date").desc()
+)
+
+accounts_df = accounts_df.withColumn("rn", row_number().over(window)) \
+    .filter(col("rn") == 1) \
+    .drop("rn", "null_count")
+
 accounts_df.write.jdbc(url=JDBC_URL, table="silver.stg_accounts", mode="overwrite", properties=JDBC_PROPERTIES)

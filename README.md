@@ -2,15 +2,29 @@
 
 A containerized ELT data platform using Docker Compose with Airflow, PostgreSQL, PySpark, dbt, and PowerBI.
 
-## Architecture
+## Project Overview
 
-This project implements a **Bronze-Silver-Gold** data lakehouse architecture for a LATAM Fintech/Banking dataset:
+This project implements a modern data engineering pipeline for a LATAM Fintech/Banking dataset, following a Bronze-Silver-Gold data warehouse architecture. The pipeline ingests raw JSON data from S3, processes it with PySpark and dbt, and delivers business-ready analytics to PowerBI.
 
-- **Bronze Layer**: Raw JSON ingestion from S3 into PostgreSQL (`jsonb`)
-- **Silver Layer (PySpark)**: Flatten nested arrays, deduplicate
-- **Silver Layer (dbt)**: Clean, standardize, and normalize PySpark output; flatten nested objects
-- **Gold Layer (dbt)**: Business-ready analytics and aggregations answering 24 business questions
-- **PowerBI**: 4-page dashboard connected to Gold layer tables
+### Business Context
+
+**Problem Statement**: A LATAM fintech lacks a unified, trusted view of customers, accounts, transactions, loans, and digital engagement, limiting growth and risk decisioning.
+
+**Business Objectives**:
+- Eliminate data silos by consolidating raw data into dependable analytical layers.
+- Standardize metrics across countries and business lines for consistent KPI definitions.
+- Improve data quality and lineage to increase trust in reporting.
+- Deliver timely dashboards for segmentation, credit risk monitoring, operational performance, fraud signals, and regulatory readiness.
+
+**Expected Impact**:
+- Faster experimentation and decision-making.
+- Improved cross-sell, retention, and risk outcomes.
+- Reliable, comparable analytics across regions and products.
+
+### Diagram of the Architecture
+
+![image](Diagram.png)
+
 
 ```
 S3 (JSON) → Airflow → Bronze → PySpark (Silver) → dbt (Silver) → dbt (Gold) → PowerBI
@@ -21,9 +35,13 @@ S3 (JSON) → Airflow → Bronze → PySpark (Silver) → dbt (Silver) → dbt (
 ```
 qversity-data-2026-montevideo-lucianoduarte/
 ├── dags/                     # Airflow DAG definitions
-│   └── example_dag.py        # Placeholder pipeline DAG
+|   ├── bronze_dag.py         # DAG for Bronze layer ingestion
+|   ├── silver_dag.py         # DAG for Silver layer transformations
+|   ├── gold_dag.py           # DAG for Gold layer transformations
+│   └── qversity_pipeline.py  # Main DAG orchestrating the pipeline
 ├── spark/                    # PySpark scripts (NEW in v2)
 ├── dbt/                      # dbt project
+|   ├── macros/               # dbt macros
 │   ├── models/
 │   │   ├── bronze/           # Raw data staging
 │   │   ├── silver/           # Cleaned and normalized data
@@ -32,7 +50,7 @@ qversity-data-2026-montevideo-lucianoduarte/
 │   ├── dbt_project.yml       # dbt configuration
 │   └── profiles.yml          # Database connections
 ├── powerbi/                  # PowerBI deliverables (NEW in v2)
-│   ├── dashboard.pbix        # PowerBI file (you create this)
+│   ├── dashboard.pbix        # PowerBI file with 4 pages of visualizations
 │   └── screenshots/          # Dashboard page screenshots
 ├── data/
 │   └── raw/                  # Raw input data
@@ -43,9 +61,6 @@ qversity-data-2026-montevideo-lucianoduarte/
 ├── .pre-commit-config.yaml   # Code quality hooks
 └── README.md                 # This file
 ```
-## Diagram of the Architecture
-
-![image](Diagram.png)
 
 ## Quick Start
 
@@ -59,10 +74,12 @@ qversity-data-2026-montevideo-lucianoduarte/
 
 1. **Clone the repository and setup environment**:
 ```bash
-git clone https://github.com/Lucho-digi/Lucho-digi-qversity-data-2026-montevideo-lucianoduarte.git
+git clone git@github.com:Lucho-digi/qversity-data-2026-montevideo-lucianoduarte.git
 cd qversity-data-2026-montevideo-lucianoduarte
 cp env.example .env
 ```
+Note you will need to fill in any required environment variables in the `.env` file before starting the services.
+It's highly recommended to use POSTGRES_PORT=5432 as it may conflict with an existing local postgres installation and u will need to change the docker-compose.yml file to reflect the new port.
 
 2. **Start services**:
 ```bash
@@ -74,22 +91,45 @@ docker compose up -d --build
 docker compose ps
 ```
 
-4. **Access Airflow UI**: http://localhost:8080 (admin/admin)
+4. **Access Airflow UI**: http://localhost:8080 
+You need to define the User and Password in the .env file before starting the services, by the way we recommend using the default credentials for testing purposes:
+> User: admin \
+> Password: admin
 
 5. **Trigger the pipeline** (once you've built it):
 ```bash
-docker compose exec airflow airflow dags trigger bronze_dag
+docker compose exec airflow airflow dags trigger qversity_pipeline
 ```
 
 ## Access Points
 
 | Service | URL / Connection | Credentials |
 |---------|-----------------|-------------|
-| Airflow UI | http://localhost:8080 | admin / admin |
-| PostgreSQL | localhost:5432 | qversity-admin / qversity-admin |
+| Airflow UI | http://localhost:8080 | define in .env |
+| PostgreSQL | localhost:5432 | define in .env |
 | Database | qversity | — |
 
 ## Common Commands
+
+### Key dbt commands
+```bash
+# Enter dbt container
+docker compose exec dbt bash
+
+# Run all models
+dbt run
+
+# Run specific layer
+dbt run --models bronze
+dbt run --models silver
+dbt run --models gold
+
+# Test data quality
+dbt test
+
+# List models
+dbt ls --resource-type model
+```
 
 ### Airflow
 ```bash
@@ -112,26 +152,6 @@ docker compose exec airflow airflow dags list-runs -d <dagname>
 docker compose exec airflow python -c "from pyspark.sql import SparkSession; print('PySpark OK')"
 ```
 
-### dbt
-```bash
-# Enter dbt container
-docker compose exec dbt bash
-
-# Run all models
-dbt run
-
-# Run specific layer
-dbt run --models bronze
-dbt run --models silver
-dbt run --models gold
-
-# Test data quality
-dbt test
-
-# List models
-dbt ls --resource-type model
-```
-
 ### Database Access
 ```bash
 # Connect to PostgreSQL
@@ -148,16 +168,32 @@ docker compose exec postgres psql -U qversity-admin -d qversity
 # Describe a table
 \d <schema>.<table_name>
 ```
+## Architecture
 
-## Data Source
+This project implements a **Bronze-Silver-Gold** data lakehouse architecture for a LATAM Fintech/Banking dataset:
 
-The dataset is a JSON file from an S3 public bucket:
+- **Bronze Layer**: Raw JSON ingestion from S3 into PostgreSQL (`jsonb`)
+- **Silver Layer (PySpark)**: Flatten nested arrays, deduplicate
+- **Silver Layer (dbt)**: Clean, standardize, and normalize PySpark output; flatten nested objects
+- **Gold Layer (dbt)**: Business-ready analytics and aggregations answering 24 business questions
+- **PowerBI**: 4-page dashboard connected to Gold layer tables 
 
-- **URL**: `https://qversity-raw-public-data.s3.amazonaws.com/fintech_banking_dataset.json`
-- **Records**: ~5,000 customers with nested accounts, transactions, loans, credit info, and digital engagement data
-- **Countries**: CO, UY, AR, MX, CL, PE, BR
+The role of main technologies:
+- **Airflow**: Orchestrates the ELT pipeline with DAGs and tasks
+- **PostgreSQL**: Stores raw and processed data in a structured format
+- **PySpark**: Handles complex transformations on nested JSON data
+- **dbt**: Manages SQL transformations, testing for Silver and Gold  
+- **PowerBI**: Visualizes key metrics and insights for business stakeholders
 
-See the **Technical Project Guide** for full dataset documentation.
+## Data Model
+
+The data model consists of 5 main entities: Customers, Accounts, Transactions, Loans, and Digital Engagement. Each entity has a corresponding table in the Bronze, Silver, and Gold layers, with increasing levels of transformation and business logic applied.
+
+For silver we had to flatten the nested arrays and objects in the raw JSON data, while for gold we implemented business logic to create standardized metrics and dimensions for analytics. There is a ERD diagram of silver:
+
+![image](SilverERD.svg)
+
+For more details on the data model and transformations, please refer to [EDA](EDA.md) and the dbt models in the `dbt/models/` directory.
 
 ## Git Tags (Milestones)
 
@@ -186,7 +222,8 @@ docker compose down -v --rmi local
 
 ## Participant
 
-- **Name**: [Your Full Name]
-- **Email**: [your.email@example.com]
-- **City**: [Your City]
+- **Name**: Luciano Duarte
+- **Email**: luchi94dmicrosoft@gmail.com
+- **City**: Empalme Sauce, Canelones, Uruguay
 - **Cohort**: Qversity 2026
+

@@ -1,29 +1,69 @@
 {{ config(materialized='table') }}
+
+WITH raw AS (
+  SELECT
+    customer_id,
+    transaction_id,
+    account_id,
+    date,
+    amount,
+    currency,
+    type,
+    category,
+    merchant,
+    channel,
+    status,
+    description
+  FROM {{ source('silver', 'stg_transactions') }}
+),
+parsed AS (
+  SELECT
+    customer_id,
+    transaction_id,
+    account_id,
+    {{ parse_date('date') }}                                          as _transaction_date,
+    {{ clean_numeric('amount') }}                                     as amount,
+    {{ trim_upper('currency') }}                                      as currency,
+    CASE {{ trim_lower('type') }}
+      WHEN 'deposito'      THEN 'deposit'
+      WHEN 'retiro'        THEN 'withdrawal'
+      WHEN 'transferencia' THEN 'transfer'
+      WHEN 'pago'          THEN 'payment'
+      WHEN 'reembolso'     THEN 'refund'
+      WHEN 'comision'      THEN 'fee'
+      ELSE {{ trim_lower('type') }}
+    END                                                               as type,
+    CASE WHEN {{ trim_lower('category') }} IN ('', 'na', 'n/a', 'null') THEN NULL
+      ELSE {{ trim_lower('category') }} END                         as category,
+    CASE WHEN {{ trim_lower('merchant') }} IN ('', 'na', 'n/a', 'null') THEN NULL
+      ELSE initcap(trim(merchant)) END                             as merchant,
+    {{ trim_lower('channel') }}                                       as channel,
+    {{ trim_lower('status') }}                                        as status,
+    CASE WHEN {{ trim_lower('description') }} IN ('', 'na', 'n/a', 'null') THEN NULL
+      ELSE trim(description) END                                   as description
+  FROM raw
+)
+
 SELECT
   customer_id,
   transaction_id,
   account_id,
-  date::date                                              as transaction_date,
-  amount::float                                           as amount,
-  upper(currency)                                         as currency,
-  CASE lower(type)
-    WHEN 'deposit'       THEN 'deposit'
-    WHEN 'deposito'      THEN 'deposit'
-    WHEN 'withdrawal'    THEN 'withdrawal'
-    WHEN 'retiro'        THEN 'withdrawal'
-    WHEN 'transfer'      THEN 'transfer'
-    WHEN 'transferencia' THEN 'transfer'
-    WHEN 'payment'       THEN 'payment'
-    WHEN 'pago'          THEN 'payment'
-    WHEN 'refund'        THEN 'refund'
-    WHEN 'reembolso'     THEN 'refund'
-    WHEN 'fee'           THEN 'fee'
-    WHEN 'comision'      THEN 'fee'
-    ELSE NULL
-  END                                                     as type,
-  lower(trim(category))                                   as category,
-  initcap(trim(merchant))                                 as merchant,
-  lower(trim(channel))                                    as channel,
-  lower(trim(status))                                     as status,
-  trim(description)                                       as description
-FROM {{ source('silver', 'stg_transactions') }}
+  _transaction_date as transaction_date,
+  amount,
+  currency,
+  type,
+  category,
+  merchant,
+  channel,
+  status,
+  description
+FROM parsed
+WHERE transaction_id IS NOT NULL
+  AND customer_id IS NOT NULL
+  AND account_id IS NOT NULL
+  AND _transaction_date IS NOT NULL
+  AND amount IS NOT NULL
+  AND type IS NOT NULL
+  AND channel IS NOT NULL
+  AND status IS NOT NULL
+  AND customer_id IN (SELECT customer_id FROM {{ ref('silver_customers') }})
