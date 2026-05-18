@@ -36,6 +36,7 @@ def create_bronze_schema():
         load_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   """)
+  cursor.execute("TRUNCATE TABLE bronze.raw_fintech_data;")
   conn.commit()
   cursor.close()
   conn.close()
