@@ -1,3 +1,3 @@
 SELECT loan_id
-FROM {{ ref('silver_loans') }}
+FROM {{ ref('fact_loans') }}
 WHERE principal < outstanding_balance

@@ -24,23 +24,12 @@ parsed AS (
     {{ parse_date('date') }}                                          as _transaction_date,
     {{ clean_numeric('amount') }}                                     as amount,
     {{ trim_upper('currency') }}                                      as currency,
-    CASE {{ trim_lower('type') }}
-      WHEN 'deposito'      THEN 'deposit'
-      WHEN 'retiro'        THEN 'withdrawal'
-      WHEN 'transferencia' THEN 'transfer'
-      WHEN 'pago'          THEN 'payment'
-      WHEN 'reembolso'     THEN 'refund'
-      WHEN 'comision'      THEN 'fee'
-      ELSE {{ trim_lower('type') }}
-    END                                                               as type,
-    CASE WHEN {{ trim_lower('category') }} IN ('', 'na', 'n/a', 'null') THEN NULL
-      ELSE {{ trim_lower('category') }} END                         as category,
-    CASE WHEN {{ trim_lower('merchant') }} IN ('', 'na', 'n/a', 'null') THEN NULL
-      ELSE initcap(trim(merchant)) END                             as merchant,
+    {{ map_values('type', {'deposito': 'deposit', 'retiro': 'withdrawal', 'transferencia': 'transfer', 'pago': 'payment', 'reembolso': 'refund', 'comision': 'fee'}) }} as type,
+    {{ trim_lower(null_if_empty('category')) }}                       as category,
+    initcap(trim({{ null_if_empty('merchant') }}))                   as merchant,
     {{ trim_lower('channel') }}                                       as channel,
     {{ trim_lower('status') }}                                        as status,
-    CASE WHEN {{ trim_lower('description') }} IN ('', 'na', 'n/a', 'null') THEN NULL
-      ELSE trim(description) END                                   as description
+    trim({{ null_if_empty('description') }})                         as description
   FROM raw
 )
 
@@ -66,4 +55,4 @@ WHERE transaction_id IS NOT NULL
   AND type IS NOT NULL
   AND channel IS NOT NULL
   AND status IS NOT NULL
-  AND customer_id IN (SELECT customer_id FROM {{ ref('silver_customers') }})
+  AND customer_id IN (SELECT customer_id FROM {{ ref('dim_customers') }})

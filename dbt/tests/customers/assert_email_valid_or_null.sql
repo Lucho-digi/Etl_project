@@ -1,4 +1,4 @@
 SELECT customer_id
-FROM {{ ref('silver_customers') }}
+FROM {{ ref('dim_customers') }}
 WHERE email IS NOT NULL
   AND email !~ '^[\w.%+\-'']+@[\w.\-]+\.[\w]{2,}$'

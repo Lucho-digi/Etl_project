@@ -4,25 +4,25 @@
 
 WITH raw AS (
   SELECT
-    data::jsonb->>'customer_id'                                   as customer_id,
-    data::jsonb->>'first_name'                                    as first_name,
-    data::jsonb->>'last_name'                                     as last_name,
-    data::jsonb->>'email'                                         as email,
-    data::jsonb->>'phone_number'                                  as phone_number,
-    data::jsonb->>'date_of_birth'                                 as _date_of_birth,
-    data::jsonb->>'gender'                                        as gender,
-    data::jsonb->>'nationality'                                   as nationality,
-    data::jsonb->>'city'                                          as city,
-    data::jsonb->>'country'                                       as country,
-    data::jsonb->>'address'                                       as address,
-    data::jsonb->>'lat'                                           as lat,
-    data::jsonb->>'lon'                                           as lon,
-    data::jsonb->>'registration_date'                             as _registration_date,
-    data::jsonb->>'kyc_status'                                    as kyc_status,
-    data::jsonb->>'risk_score'                                    as risk_score,
-    data::jsonb->>'customer_segment'                              as customer_segment,
-    data::jsonb->>'relationship_manager'                          as relationship_manager,
-    data::jsonb->>'status'                                        as status,
+    {{ jsonb_extract('data', 'customer_id') }}                                   as customer_id,
+    {{ jsonb_extract('data', 'first_name') }}                                    as first_name,
+    {{ jsonb_extract('data', 'last_name') }}                                     as last_name,
+    {{ jsonb_extract('data', 'email') }}                                         as email,
+    {{ jsonb_extract('data', 'phone_number') }}                                  as phone_number,
+    {{ jsonb_extract('data', 'date_of_birth') }}                                 as _date_of_birth,
+    {{ jsonb_extract('data', 'gender') }}                                        as gender,
+    {{ jsonb_extract('data', 'nationality') }}                                   as nationality,
+    {{ jsonb_extract('data', 'city') }}                                          as city,
+    {{ jsonb_extract('data', 'country') }}                                       as country,
+    {{ jsonb_extract('data', 'address') }}                                       as address,
+    {{ jsonb_extract('data', 'lat') }}                                           as lat,
+    {{ jsonb_extract('data', 'lon') }}                                           as lon,
+    {{ jsonb_extract('data', 'registration_date') }}                             as _registration_date,
+    {{ jsonb_extract('data', 'kyc_status') }}                                    as kyc_status,
+    {{ jsonb_extract('data', 'risk_score') }}                                    as risk_score,
+    {{ jsonb_extract('data', 'customer_segment') }}                              as customer_segment,
+    {{ jsonb_extract('data', 'relationship_manager') }}                          as relationship_manager,
+    {{ jsonb_extract('data', 'status') }}                                        as status,
     load_timestamp
   FROM {{ source('silver', 'stg_raw_deduplicated') }}
 ),
@@ -55,20 +55,9 @@ transformed AS (
     {{ parse_date('_registration_date') }}                            as registration_date,
     {{ trim_lower('kyc_status') }}                                    as kyc_status,
     risk_score::float                                                 as risk_score,
-    CASE {{ trim_lower('customer_segment') }}
-      WHEN 'pyme' THEN 'sme'
-      WHEN 'minorista' THEN 'retail'
-      WHEN 'banca_privada' THEN 'private_banking'
-      ELSE {{ trim_lower('customer_segment') }}
-    END                                                               as customer_segment,
+    {{ map_values('customer_segment', {'pyme': 'sme', 'minorista': 'retail', 'banca_privada': 'private_banking'}) }} as customer_segment,
     nullif(trim(relationship_manager), '')                           as relationship_manager,
-    CASE {{ trim_lower('status') }}
-      WHEN 'activo'     THEN 'active'
-      WHEN 'inactivo'   THEN 'inactive'
-      WHEN 'suspendido' THEN 'suspended'
-      WHEN 'cerrado'    THEN 'closed'
-      ELSE {{ trim_lower('status') }}
-    END                                                               as status,
+    {{ map_values('status', {'activo': 'active', 'inactivo': 'inactive', 'suspendido': 'suspended', 'cerrado': 'closed'}) }} as status,
     load_timestamp
   FROM raw
 )

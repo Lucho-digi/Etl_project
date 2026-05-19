@@ -1,4 +1,4 @@
 SELECT customer_id
-FROM {{ ref('silver_customers') }}
+FROM {{ ref('dim_customers') }}
 WHERE lat != lat
 

@@ -10,7 +10,7 @@ sources:
       - name: stg_loans
 
 models:
-  - name: silver_customers
+  - name: dim_customers
     columns:
       - name: customer_id
         tests:
@@ -64,13 +64,13 @@ models:
           - not_null
           - accepted_values:
               values: ['active', 'inactive', 'suspended', 'closed']
-  - name: silver_accounts
+  - name: fact_accounts
     columns:
       - name: customer_id
         tests:
           - not_null
           - relationships:
-              to: ref('silver_customers')
+              to: ref('dim_customers')
               field: customer_id
       - name: account_id
         tests:
@@ -94,13 +94,13 @@ models:
           - accepted_values:
               values: ['active', 'closed', 'frozen']
 
-  - name: silver_transactions
+  - name: fact_transactions
     columns:
       - name: customer_id
         tests:
           - not_null
           - relationships:
-              to: ref('silver_customers')
+              to: ref('dim_customers')
               field: customer_id
       - name: transaction_id
         tests:
@@ -110,7 +110,7 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('silver_accounts')
+              to: ref('fact_accounts')
               field: account_id
       - name: transaction_date
         tests:
@@ -136,13 +136,13 @@ models:
           - accepted_values:
               values: ['completed', 'pending', 'failed', 'reversed']
 
-  - name: silver_loans
+  - name: fact_loans
     columns:
       - name: customer_id
         tests:
           - not_null
           - relationships:
-              to: ref('silver_customers')
+              to: ref('dim_customers')
               field: customer_id
       - name: loan_id
         tests:
@@ -183,14 +183,14 @@ models:
           - accepted_values:
               values: ['none', 'real_estate', 'vehicle', 'investment_portfolio', 'savings_account']
 
-  - name: silver_credit_info
+  - name: fact_credit_info
     columns:
       - name: customer_id
         tests:
           - not_null
           - unique
           - relationships:
-              to: ref('silver_customers')
+              to: ref('dim_customers')
               field: customer_id
       - name: utilization_pct
         tests:
@@ -207,14 +207,14 @@ models:
           - value_in_range:
               min_value: 0
 
-  - name: silver_digital_engagement
+  - name: fact_digital_engagement
     columns:
       - name: customer_id
         tests:
           - not_null
           - unique
           - relationships:
-              to: ref('silver_customers')
+              to: ref('dim_customers')
               field: customer_id
       - name: last_login_date
       - name: preferred_channel
@@ -222,3 +222,40 @@ models:
           - not_null
           - accepted_values:
               values: ['mobile', 'web', 'atm', 'branch', 'call_center']
+
+  - name: dim_date
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+          - unique
+      - name: full_date
+        tests:
+          - not_null
+      - name: year
+        tests:
+          - not_null
+      - name: quarter
+        tests:
+          - not_null
+      - name: month
+        tests:
+          - not_null
+      - name: month_name
+        tests:
+          - not_null
+      - name: day
+        tests:
+          - not_null
+      - name: day_of_week
+        tests:
+          - not_null
+      - name: day_name
+        tests:
+          - not_null
+      - name: is_weekend
+        tests:
+          - not_null
+      - name: week_of_year
+        tests:
+          - not_null

@@ -187,7 +187,7 @@ The role of main technologies:
 
 ## Data Model
 
-The data model consists of 5 main entities: Customers, Accounts, Transactions, Loans, and Digital Engagement. Each entity has a corresponding table in the Bronze, Silver, and Gold layers, with increasing levels of transformation and business logic applied.
+The data model consists of 6 main entities: Customers, Accounts, Transactions, Loans, Credit Info and Digital Engagement. Each entity has a corresponding table in the Silver, and Gold layers, with increasing levels of transformation and business logic applied.
 
 For silver we had to flatten the nested arrays and objects in the raw JSON data, while for gold we implemented business logic to create standardized metrics and dimensions for analytics. There is a ERD diagram of silver:
 

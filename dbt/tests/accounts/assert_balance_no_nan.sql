@@ -1,4 +1,4 @@
 SELECT account_id
-FROM {{ ref('silver_accounts') }}
+FROM {{ ref('fact_accounts') }}
 WHERE balance != balance
 

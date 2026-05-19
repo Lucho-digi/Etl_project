@@ -1,4 +1,4 @@
 SELECT transaction_id
-FROM {{ ref('silver_transactions') }}
+FROM {{ ref('fact_transactions') }}
 WHERE amount != amount
 

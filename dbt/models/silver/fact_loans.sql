@@ -33,8 +33,7 @@ SELECT
   {{ parse_date('end_date') }}                                      as end_date,
   {{ trim_lower('status') }}                                        as status,
   days_past_due                                                     as days_past_due,
-  CASE WHEN {{ trim_lower('collateral_type') }} IN ('', 'na', 'n/a', 'null') THEN NULL
-    ELSE {{ trim_lower('collateral_type') }} END                 as collateral_type
+  {{ trim_lower(null_if_empty('collateral_type')) }}               as collateral_type
 FROM raw
 WHERE loan_id IS NOT NULL
   AND customer_id IS NOT NULL
@@ -43,4 +42,4 @@ WHERE loan_id IS NOT NULL
   AND term_months IS NOT NULL
   AND start_date IS NOT NULL
   AND end_date IS NOT NULL
-  AND customer_id IN (SELECT customer_id FROM {{ ref('silver_customers') }})
+  AND customer_id IN (SELECT customer_id FROM {{ ref('dim_customers') }})
