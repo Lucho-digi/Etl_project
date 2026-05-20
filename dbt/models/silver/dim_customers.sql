@@ -70,6 +70,7 @@ WHERE customer_id IS NOT NULL
   AND date_of_birth IS NOT NULL
   AND country IS NOT NULL
   AND registration_date IS NOT NULL
+  AND registration_date <= CURRENT_DATE
   AND risk_score IS NOT NULL
   AND status IS NOT NULL
   AND customer_segment IS NOT NULL

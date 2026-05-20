@@ -36,5 +36,6 @@ SELECT
   load_timestamp
 FROM raw
 WHERE customer_id IS NOT NULL
-  AND credit_score IS NOT NULL
+  AND credit_score::int > 0
+  AND credit_score::int < 999
   AND customer_id IN (SELECT customer_id FROM {{ ref('dim_customers') }})
