@@ -89,7 +89,7 @@ transformed AS (
       when lower(trim(city)) in ('paysand') then 'Paysandu'
       when lower(trim(city)) in ('rivra') then 'Rivera'
       when lower(trim(city)) in ('saltp') then 'Salto'
-      else city
+      else initcap(trim(city))
     end as city,
     {{ trim_upper('country') }}                                       as country,
     nullif(trim(address), '')                                         as address,
