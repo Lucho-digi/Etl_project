@@ -47,7 +47,50 @@ transformed AS (
       ELSE 'Other'
     END                                                               as gender,
     {{ trim_upper('nationality') }}                                   as nationality,
-    initcap(trim(city))                                               as city,
+    case
+    -- AR
+      when lower(trim(city)) in ('buenos aire') then 'Buenos Aires'
+      when lower(trim(city)) in ('cordba') then 'Cordoba'
+      when lower(trim(city)) in ('mendza') then 'Mendoza'
+      when lower(trim(city)) in ('rosaro') then 'Rosario'
+      when lower(trim(city)) in ('tucman') then 'Tucuman'
+      -- BR
+      when lower(trim(city)) in ('brasila') then 'Brasilia'
+      when lower(trim(city)) in ('fortalza') then 'Fortaleza'
+      when lower(trim(city)) in ('rio de janero') then 'Rio De Janeiro'
+      when lower(trim(city)) in ('salvdor') then 'Salvador'
+      when lower(trim(city)) in ('sao paulp') then 'Sao Paulo'
+      -- CL
+      when lower(trim(city)) in ('concepcin') then 'Concepcion'
+      when lower(trim(city)) in ('la serna') then 'La Serena'
+      when lower(trim(city)) in ('santiag') then 'Santiago'
+      when lower(trim(city)) in ('temco') then 'Temuco'
+      -- CO
+      when lower(trim(city)) in ('barranquila') then 'Barranquilla'
+      when lower(trim(city)) in ('bogta') then 'Bogota'
+      when lower(trim(city)) in ('cai') then 'Cali'
+      when lower(trim(city)) in ('cartagna') then 'Cartagena'
+      when lower(trim(city)) in ('medelin') then 'Medellin'
+      -- MX
+      when lower(trim(city)) in ('ciudd de mexico') then 'Ciudad De Mexico'
+      when lower(trim(city)) in ('guadalajra') then 'Guadalajara'
+      when lower(trim(city)) in ('monterry') then 'Monterrey'
+      when lower(trim(city)) in ('puebl') then 'Puebla'
+      when lower(trim(city)) in ('tijana') then 'Tijuana'
+      -- PE
+      when lower(trim(city)) in ('arequpa') then 'Arequipa'
+      when lower(trim(city)) in ('cusc') then 'Cusco'
+      when lower(trim(city)) in ('lma') then 'Lima'
+      when lower(trim(city)) in ('piua') then 'Piura'
+      when lower(trim(city)) in ('trujllo') then 'Trujillo'
+      -- UY
+      when lower(trim(city)) in ('maldonad') then 'Maldonado'
+      when lower(trim(city)) in ('montevide') then 'Montevideo'
+      when lower(trim(city)) in ('paysand') then 'Paysandu'
+      when lower(trim(city)) in ('rivra') then 'Rivera'
+      when lower(trim(city)) in ('saltp') then 'Salto'
+      else city
+    end as city,
     {{ trim_upper('country') }}                                       as country,
     nullif(trim(address), '')                                         as address,
     CASE WHEN lat::float BETWEEN -90 AND 90 THEN lat::float END       as lat,

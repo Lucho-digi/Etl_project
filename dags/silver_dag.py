@@ -73,16 +73,14 @@ flatten_transactions_task = BashOperator(
   bash_command="spark-submit --packages org.postgresql:postgresql:42.6.2 /opt/airflow/spark/flatten_transactions.py",
   dag=dag
 )
-
 dbt_run_task = BashOperator(
   task_id="dbt_run",
-  bash_command="cd /opt/airflow/dbt && dbt run --target-path /tmp/dbt-target",
+  bash_command="cd /opt/airflow/dbt && dbt run --models silver --target-path /tmp/dbt-target",
   dag=dag
 )
-
 dbt_test_task = BashOperator(
   task_id="dbt_test",
-  bash_command="cd /opt/airflow/dbt && dbt test --target-path /tmp/dbt-target",
+  bash_command="cd /opt/airflow/dbt && dbt test --models silver --target-path /tmp/dbt-target",
   dag=dag
 )
 
