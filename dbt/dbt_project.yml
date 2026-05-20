@@ -12,9 +12,11 @@ analysis-paths: ["analysis"]
 snapshot-paths: ["snapshots"]
 
 target-path: "target"
+log-path: "/tmp/dbt-logs"
 clean-targets:
   - "target"
   - "dbt_packages"
+  - "/tmp/dbt-logs"
 
 models:
   qversity:
