@@ -1,6 +1,6 @@
 # Business Questions — Dashboard Answers
 
-All answers are derived directly from the PowerBI dashboard connected to the Gold layer in PostgreSQL.
+All answers are derived directly from the PowerBI dashboard connected to the Gold layer in PostgreSQL. Where distributions are uniform, this is noted — it reflects the synthetic nature of the dataset rather than a data quality issue.
 
 ---
 
@@ -22,7 +22,7 @@ All answers are derived directly from the PowerBI dashboard connected to the Gol
 - AR: $444,16M
 
 **Q3 — What is the revenue breakdown by transaction channel?**
-Fee revenue only — interest income cannot be attributed to a specific channel.
+Reflects fee revenue only — interest income is loan-based and can't be attributed to a channel.
 - Branch: ~$18M
 - POS: ~$18M
 - Mobile: ~$16M
@@ -46,8 +46,9 @@ Fee revenue only — interest income cannot be attributed to a specific channel.
 - Premium: 49,09%
 - SME: 49,04%
 
+Rates are nearly identical across segments 
+
 **Q6 — What is the credit score distribution by country?**
-Average credit score by country:
 - BR: 572,86
 - CO: 572,62
 - MX: 572,40
@@ -56,43 +57,35 @@ Average credit score by country:
 - PE: 565,03
 - CL: 554,98
 
-All countries fall in the `fair` credit score bucket (580–669), with CL slightly below average.
+All countries fall in the `fair` credit score bucket (580–669 per FICO scale), with CL slightly below the others.
 
 **Q7 — Is there a relationship between credit utilization and delinquency?**
-Delinquency rate by utilization bucket:
-- Very Low: 50,97%
-- Low: 50,88%
-- High: 49,85%
-- Moderate: 48,73%
-- Maxed: 48,55%
-- Very High: 48,40%
+- Very Low (0–9%): 50,97%
+- Low (10–29%): 50,88%
+- High (50–69%): 49,85%
+- Moderate (30–49%): 48,73%
+- Maxed (90–100%): 48,55%
+- Very High (70–89%): 48,40%
 
-No significant relationship found — delinquency rates are nearly uniform across all utilization buckets (~48–51%). This is consistent with the synthetic nature of the dataset.
+No meaningful relationship found — delinquency is uniform across utilization buckets (~48–51%). 
 
 **Q8 — What is the days past due distribution by loan type?**
-All loan types show similar DPD distribution:
-- Current (~33–35%)
-- 90+ (~32–34%)
-- 1-30 (~9–12%)
-- 31-60 (~8–11%)
-- 61-90 (~7–9%)
+All loan types show a similar distribution. Current loans make up ~33–35% per type, and 90+ DPD loans account for ~32–34%. Auto has the highest share of current loans (33,69%); Business has the highest 90+ rate (35,17%).
 
-Auto loans have the highest share of current loans (33,69%) and Business loans the highest 90+ rate (35,17%).
+**Q9 — How do risk scores segment customers?**
+- Medium (25–49): 1,137
+- High (50–74): 1,110
+- Critical (75–100): 1,062
+- Low (0–24): 993
 
-**Q9 — How do risk scores segment customers (low/medium/high/critical)?**
-- Medium: 1,137
-- High: 1,110
-- Critical: 1,062
-- Low: 993
-
-Distribution is roughly uniform across all buckets — consistent with a synthetic dataset generating scores across the full 0–100 range.
+Distribution is roughly uniform 
 
 ---
 
 ## Customer Demographics
 
 **Q10 — What is the customer count by country and city?**
-Top cities by customer count:
+Top 12 cities:
 - Tijuana (MX): 148
 - Rio De Janeiro (BR): 147
 - Salto (UY): 144
@@ -107,7 +100,6 @@ Top cities by customer count:
 - Brasilia (BR): 127
 
 **Q11 — What is the age distribution by customer segment?**
-Distribution is relatively uniform across segments. The 35–44 age group is consistently the largest across all segments (~19–20%). Full breakdown:
 
 | Age | SME | Retail | Premium | Private Banking |
 |-----|-----|--------|---------|-----------------|
@@ -118,16 +110,18 @@ Distribution is relatively uniform across segments. The 35–44 age group is con
 | 55-64 | 18,28% | 17,32% | 19,72% | 16,31% |
 | 65+  | 17,74% | 20,42% | 19,72% | 18,74% |
 
-**Q12 — What is the customer acquisition trend over time (monthly)?**
-Monthly registrations range between 328 and 401 customers. Peak acquisition was in May (401). The lowest month was February (328). No strong seasonal trend is visible — consistent with synthetic data generation.
+Distribution is relatively uniform across segments — no strong demographic skew by segment in this dataset.
+
+**Q12 — What is the customer acquisition trend over time?**
+Monthly registrations range from 328 (February) to 401 (May). No strong seasonal pattern. Wednesday shows the highest transaction volume week-over-week.
 
 **Q13 — What is the customer status breakdown?**
-- Active: 1,109
-- Suspended: 1,109
-- Inactive: 1,043
-- Closed: 1,041
+- Active: 1,109 (23,76%)
+- Suspended: 1,109 (23,76%)
+- Inactive: 1,043 (22,35%)
+- Closed: 1,041 (22,30%)
 
-Distribution is nearly uniform across all statuses — ~25% each.
+Nearly uniform across all statuses.
 
 **Q14 — What is the KYC status distribution?**
 - Pending: 1,114
@@ -135,7 +129,7 @@ Distribution is nearly uniform across all statuses — ~25% each.
 - Expired: 1,060
 - Rejected: 1,058
 
-Distribution is nearly uniform — ~25% each status.
+Nearly uniform — ~25% per status.
 
 ---
 
@@ -143,21 +137,11 @@ Distribution is nearly uniform — ~25% each status.
 
 **Q15 — What are the most common transaction categories by volume and value?**
 
-By volume (count):
-- healthcare: 4,888
-- dining: 4,879
-- utilities: 4,866
-- shopping: 4,860
-- travel: 4,829
+By volume: healthcare (4,888) · dining (4,879) · utilities (4,866) · shopping (4,860) · travel (4,829)
 
-By value:
-- dining: $124,1M
-- utilities: $121,4M
-- other: $121,0M
-- travel: $120,8M
-- healthcare: $120,7M
+By value: dining ($124,1M) · utilities ($121,4M) · other ($121,0M) · travel ($120,8M) · healthcare ($120,7M)
 
-All categories are nearly equal in both volume and value — consistent with synthetic data.
+All categories are nearly equal in both volume and value.
 
 **Q16 — What is the transaction volume by day of week?**
 - Wednesday: 12,264
@@ -168,13 +152,13 @@ All categories are nearly equal in both volume and value — consistent with syn
 - Saturday: 11,428
 - Thursday: 11,386
 
-Wednesday has the highest volume. Weekdays generally outperform weekends slightly.
+Wednesday leads slightly. Weekdays generally outperform weekends.
 
 **Q17 — What is the average transaction size by channel?**
 - Branch: $1,083,67
-- POS: $1,073,3
+- POS: $1,073,30
 - Web: $991,67
-- Mobile: $976,4
+- Mobile: $976,40
 - ATM: $933,27
 
 **Q18 — What is the failed transaction rate by channel?**
@@ -184,38 +168,29 @@ Wednesday has the highest volume. Weekdays generally outperform weekends slightl
 - Web: 24,89%
 - Mobile: 24,72%
 
-Failure rates are uniform across channels (~25%) — consistent with synthetic data having equal distribution across transaction statuses.
+Uniform across channels (~25%) — consistent with all transaction statuses being equally distributed in the dataset.
 
 **Q19 — What are the international transfer patterns?**
 
-By country (international transaction count):
-- UY: ~11K
-- MX: ~11K
-- PE: ~11K
-- BR: ~10,9K
-- AR: ~10,7K
-- CO: ~10,7K
-- CL: ~10,2K
+By country (international transaction count): UY · MX · PE (~11K each) · BR (~10,9K) · AR · CO (~10,7K each) · CL (~10,2K)
 
-By currency:
-- USD: ~38K (largest — dominant international currency)
-- ARS, PEN, UYU, COP, BRL, MXN, CLP: ~6K each
-- EUR: ~1K
+By currency: USD leads with ~38K international transactions. All local currencies show ~6K each. EUR accounts for ~1K.
+
+USD is the dominant international currency across all 7 countries, as none have USD as their local currency.
 
 ---
 
 ## Digital Engagement
 
 **Q20 — What is the mobile app adoption rate by segment?**
-- Private Banking: 49,78% (True)
+- Private Banking: 49,78%
 - SME: 49,53%
 - Premium: 49,35%
 - Retail: 48,00%
 
-Overall mobile adoption rate: 49,15%
+Overall: 49,15%. Adoption is consistent across segments — no clear segment-driven digital behavior in this dataset.
 
 **Q21 — What is the digital vs branch preference by age group?**
-Digital preferred (True) vs non-digital (False) by age group:
 
 | Age Group | Digital | Non-Digital |
 |-----------|---------|-------------|
@@ -226,7 +201,7 @@ Digital preferred (True) vs non-digital (False) by age group:
 | 35-44 | 445 | 263 |
 | 18-24 | 338 | 222 |
 
-Digital preference is consistent across all age groups — no strong age-based divergence found in this dataset.
+Digital preference is consistent across all age groups — no age-based divergence found. In a real dataset, younger groups would typically skew more digital.
 
 ---
 
@@ -238,10 +213,10 @@ Digital preference is consistent across all age groups — no strong age-based d
 - Checking: 4,098
 - Investment: 3,981
 
-Credit Card is the most popular account type, followed closely by Savings.
+Credit Card leads, followed closely by Savings. Distribution is relatively even across all types.
 
 **Q23 — What is the loan portfolio composition?**
-Outstanding balance by type and status (active loans only — paid off loans have $0 outstanding balance by definition):
+By outstanding balance, active loans only (paid off loans have $0 outstanding balance by definition):
 
 | Type | Current | Default | Delinquent |
 |------|---------|---------|------------|
@@ -252,8 +227,10 @@ Outstanding balance by type and status (active loans only — paid off loans hav
 | Mortgage | 33,98% | 34,04% | 31,98% |
 
 **Q24 — What is the average number of products per customer by segment?**
-Overall average: 5,04 products per customer.
 - Retail: 5,06
 - Private Banking: 5,05
-- Premium: 5,02
 - SME: 5,03
+- Premium: 5,02
+- Overall: 5,04
+
+Product counts are nearly identical across segments — in a real dataset, Private Banking customers would typically hold significantly more products.
