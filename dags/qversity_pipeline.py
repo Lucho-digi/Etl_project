@@ -35,4 +35,11 @@ with DAG(
     reset_dag_run=True,
   )
 
-  trigger_bronze >> trigger_silver
+  trigger_gold = TriggerDagRunOperator(
+    task_id="trigger_gold_pipeline",
+    trigger_dag_id="gold_pipeline",
+    wait_for_completion=True,
+    reset_dag_run=True,
+  )
+
+  trigger_bronze >> trigger_silver >> trigger_gold
