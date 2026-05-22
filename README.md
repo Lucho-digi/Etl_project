@@ -21,14 +21,14 @@ This project implements a modern data engineering pipeline for a LATAM Fintech/B
 - Improved cross-sell, retention, and risk outcomes.
 - Reliable, comparable analytics across regions and products.
 
-### Diagram of the Architecture
+### Architecture Diagram
 
 ![image](Diagram.png)
-
 
 ```
 S3 (JSON) → Airflow → Bronze → PySpark (Silver) → dbt (Silver) → dbt (Gold) → PowerBI
 ```
+---
 
 ## Project Structure
 
@@ -39,7 +39,7 @@ qversity-data-2026-montevideo-lucianoduarte/
 |   ├── silver_dag.py         # DAG for Silver layer transformations
 |   ├── gold_dag.py           # DAG for Gold layer transformations
 │   └── qversity_pipeline.py  # Main DAG orchestrating the pipeline
-├── spark/                    # PySpark scripts (NEW in v2)
+├── spark/                    # PySpark scripts
 ├── dbt/                      # dbt project
 |   ├── macros/               # dbt macros
 │   ├── models/
@@ -49,7 +49,7 @@ qversity-data-2026-montevideo-lucianoduarte/
 │   ├── tests/                # dbt tests
 │   ├── dbt_project.yml       # dbt configuration
 │   └── profiles.yml          # Database connections
-├── powerbi/                  # PowerBI deliverables (NEW in v2)
+├── powerbi/                  # PowerBI deliverables
 │   ├── dashboard.pbix        # PowerBI file with 4 pages of visualizations
 │   └── screenshots/          # Dashboard page screenshots
 ├── data/
@@ -59,8 +59,12 @@ qversity-data-2026-montevideo-lucianoduarte/
 ├── requirements.txt          # Python dependencies
 ├── .gitignore
 ├── .pre-commit-config.yaml   # Code quality hooks
+├── EDA.md                    # Data exploration and processing decisions
+├── BUSINESS_QUESTIONS.md     # Answers to all 24 business questions
 └── README.md                 # This file
 ```
+
+---
 
 ## Quick Start
 
@@ -79,7 +83,7 @@ cd qversity-data-2026-montevideo-lucianoduarte
 cp env.example .env
 ```
 Note you will need to fill in any required environment variables in the `.env` file before starting the services.
-It's highly recommended to use POSTGRES_PORT=5432 as it may conflict with an existing local postgres installation and u will need to change the docker-compose.yml file to reflect the new port.
+It's highly recommended to use a dedicated `POSTGRES_PORT` to avoid conflicts with any existing local PostgreSQL installation — if you change it, update `docker-compose.yml` accordingly.
 
 2. **Start services**:
 ```bash
@@ -91,15 +95,17 @@ docker compose up -d --build
 docker compose ps
 ```
 
-4. **Access Airflow UI**: http://localhost:8080 
-You need to define the User and Password in the .env file before starting the services, by the way we recommend using the default credentials for testing purposes:
+4. **Access Airflow UI**: http://localhost:8080
+You need to define the User and Password in the `.env` file before starting the services. Default credentials for testing:
 > User: admin \
 > Password: admin
 
-5. **Trigger the pipeline** (once you've built it):
+5. **Trigger the pipeline**:
 ```bash
 docker compose exec airflow airflow dags trigger qversity_pipeline
 ```
+
+---
 
 ## Access Points
 
@@ -109,9 +115,11 @@ docker compose exec airflow airflow dags trigger qversity_pipeline
 | PostgreSQL | localhost:5432 | define in .env |
 | Database | qversity | — |
 
+---
+
 ## Common Commands
 
-### Key dbt commands
+### dbt
 ```bash
 # Enter dbt container
 docker compose exec dbt bash
@@ -123,6 +131,9 @@ dbt run
 dbt run --models bronze
 dbt run --models silver
 dbt run --models gold
+
+# Load seed data (fx_rates)
+dbt seed
 
 # Test data quality
 dbt test
@@ -168,44 +179,227 @@ docker compose exec postgres psql -U qversity-admin -d qversity
 # Describe a table
 \d <schema>.<table_name>
 ```
+
+---
+
 ## Architecture
 
 This project implements a **Bronze-Silver-Gold** data lakehouse architecture for a LATAM Fintech/Banking dataset:
 
-- **Bronze Layer**: Raw JSON ingestion from S3 into PostgreSQL (`jsonb`)
-- **Silver Layer (PySpark)**: Flatten nested arrays, deduplicate
-- **Silver Layer (dbt)**: Clean, standardize, and normalize PySpark output; flatten nested objects
-- **Gold Layer (dbt)**: Business-ready analytics and aggregations answering 24 business questions
-- **PowerBI**: 4-page dashboard connected to Gold layer tables 
+- **Bronze Layer**: Raw JSON ingestion from S3 into PostgreSQL (`jsonb`). Data is stored exactly as received — no transformations, no assumptions. This is the safety net for the entire pipeline.
+- **Silver Layer (PySpark)**: Reads Bronze data via JDBC, flattens nested arrays (`accounts[]`, `transactions[]`, `loans[]`) into relational staging tables, and applies deduplication logic. Writes results back to the `silver` schema.
+- **Silver Layer (dbt)**: Cleans, standardizes, and normalizes PySpark output. Handles type casting, boolean normalization, date format inconsistencies, NaN values, invalid numeric ranges, and categorical standardization. Builds dimension and fact tables.
+- **Gold Layer (dbt)**: Business-ready analytics models that answer 24 business questions. All revenue calculations, risk bucketing, and age/tenure computations happen here. Amounts are converted to USD using fixed exchange rates loaded via dbt seeds.
+- **PowerBI**: Connects directly to the `gold` schema in PostgreSQL. Presents insights in a 4-page dashboard with slicers for country, segment, and channel.
 
-The role of main technologies:
-- **Airflow**: Orchestrates the ELT pipeline with DAGs and tasks
-- **PostgreSQL**: Stores raw and processed data in a structured format
-- **PySpark**: Handles complex transformations on nested JSON data
-- **dbt**: Manages SQL transformations, testing for Silver and Gold  
-- **PowerBI**: Visualizes key metrics and insights for business stakeholders
+### Role of Main Technologies
+
+| Technology | Role |
+|------------|------|
+| **Airflow** | Orchestrates the full ELT pipeline via DAGs |
+| **PostgreSQL** | Single warehouse storing bronze, silver, and gold schemas |
+| **PySpark** | Flattens nested JSON arrays and deduplicates entities |
+| **dbt** | SQL transformations, testing, and documentation |
+| **PowerBI** | 4-page dashboard connected to gold schema |
+| **Docker** | Containerized development and reproducible environment |
+
+---
 
 ## Data Model
 
-The data model consists of 6 main entities: Customers, Accounts, Transactions, Loans, Credit Info and Digital Engagement. Each entity has a corresponding table in the Silver, and Gold layers, with increasing levels of transformation and business logic applied.
+The data model consists of 6 main entities: Customers, Accounts, Transactions, Loans, Credit Info, and Digital Engagement. Each entity has a corresponding table in the Silver and Gold layers.
 
-For silver we had to flatten the nested arrays and objects in the raw JSON data, while for gold we implemented business logic to create standardized metrics and dimensions for analytics. There is a ERD diagram of silver:
+For Silver, PySpark flattened the nested arrays and dbt finished flattening the nested objects (`credit_info`, `digital_engagement`) into relational structures. The Silver ERD is available below:
 
 ![image](SilverERD.svg)
 
-For more details on the data model and transformations, please refer to [EDA](EDA.md) and the dbt models in the `dbt/models/` directory.
+### Silver Layer — Dimensions and Facts
+
+| Table | Type | Grain | Description |
+|-------|------|-------|-------------|
+| `dim_customers` | Dimension | One row per customer | Demographics, risk score, KYC, segment |
+| `dim_date` | Dimension | One row per calendar day | Date attributes for time-series analysis |
+| `fact_accounts` | Fact | One row per account | Account balances, types, interest rates |
+| `fact_transactions` | Fact | One row per transaction | Amounts, channels, types, statuses |
+| `fact_loans` | Fact | One row per loan | Principal, rates, DPD, status |
+| `fact_credit_info` | Fact | One row per customer | Credit score, utilization, bankruptcy flag |
+| `fact_digital_engagement` | Fact | One row per customer | Login history, channel preferences, registrations |
+
+### Gold Layer — Analytics Models
+
+| Model | Grain | Business Questions |
+|-------|-------|-------------------|
+| `gold_customer_summary` | One row per customer | Q9, Q10, Q11, Q12, Q13, Q14, Q24 |
+| `gold_financial_summary` | One row per customer | Q1, Q2, Q4 |
+| `gold_transaction_summary` | One row per transaction | Q3, Q15, Q16, Q17, Q18, Q19 |
+| `gold_loan_summary` | One row per loan | Q5, Q7, Q8, Q23 |
+| `gold_credit_summary` | One row per customer | Q6, Q7 |
+| `gold_digital_summary` | One row per customer | Q20, Q21 |
+| `gold_product_summary` | One row per account | Q22 |
+
+For full documentation of data quality decisions, NULL handling strategy, and Gold layer design decisions, refer to [EDA.md](EDA.md).
+The Gold ERD is available below:
+![image](GoldERD.svg)
+---
+
+## PySpark Logic
+
+PySpark scripts live in the `spark/` directory and are triggered from Airflow as part of the silver pipeline.
+
+### Scripts
+
+**`flatten_customers.py`**
+Reads `bronze.raw_fintech_data` and extracts flat customer fields into `silver.stg_raw_deduplicated`. Applies deduplication logic: for duplicate `customer_id` records, the record with fewer NULLs in key fields is kept. Ties are broken by earliest `registration_date`.
+
+**`flatten_accounts.py`**
+Explodes the `accounts[]` array from each customer record into individual rows. Each row represents one account. Deduplication keeps the most complete record per `account_id`.
+
+**`flatten_transactions.py`**
+Explodes the `transactions[]` array. Each row represents one transaction. Deduplication prefers `completed` status, then earliest date.
+
+**`flatten_loans.py`**
+Explodes the `loans[]` array. Each row represents one loan. Deduplication keeps the most complete record per `loan_id`.
+
+### Deduplication Summary
+
+| Entity | Duplicates Removed | Strategy |
+|--------|-------------------|----------|
+| Customers | 100 | Fewest NULLs → earliest registration date |
+| Accounts | 336 | Most complete record |
+| Transactions | 1,754 | Prefer completed → earliest date |
+| Loans | 156 | Most complete record |
+
+The `credit_info{}` and `digital_engagement{}` objects were flattened directly in dbt Silver as they are nested objects (not arrays) and don't require PySpark to explode.
+
+---
+
+## PowerBI Dashboard
+
+The dashboard connects directly to PostgreSQL (`gold` schema) and consists of 4 pages. All amounts are displayed in USD using fixed exchange rates as of 2026-05-19.
+
+### Page 1 — Executive Overview
+
+![Executive Overview](powerbi/screenshots/page1_executive_overview.png)
+
+**What it shows**: High-level KPIs and demographic breakdown of the customer base across 7 LATAM countries.
+
+**Key metrics**: 4,667 total customers, $4.07bn in assets under management, average risk score of 49.91, average 5.04 products per customer.
+
+**Visuals**: Customer count by country and city, segment distribution, customer status breakdown, KYC status distribution, risk score distribution.
+
+**Business questions answered**: Q9, Q10, Q13, Q14, Q24
+
+**Decisions it can support**:
+- Geographic expansion priorities based on customer concentration
+- Compliance monitoring via KYC status distribution
+- Risk appetite assessment via risk bucket distribution
+- Cross-sell opportunities via average products per segment
+
+---
+
+### Page 2 — Revenue & Transactions
+
+![Revenue & Transactions](powerbi/screenshots/page2_revenue_transactions.png)
+
+**What it shows**: Revenue breakdown, transaction patterns, channel performance, and international activity.
+
+**Key metrics**: $82.81M in fee revenue, 81,864 total transactions, $24.83K average ticket size, 25.02% failed transaction rate.
+
+**Visuals**: Fee revenue by channel, average revenue by segment, total balances by country, interest income by loan type, transaction categories by volume and value, volume by day of week, average ticket by channel, failed rate by channel, international transactions by country and currency.
+
+**Business questions answered**: Q1, Q2, Q3, Q4, Q15, Q16, Q17, Q18, Q19
+
+**Note on Q3**: Revenue by channel reflects fee revenue only. Interest income is derived from loans and cannot be attributed to a specific transaction channel.
+
+**Decisions it can support**:
+- Channel investment decisions based on revenue and failure rates
+- Product pricing strategy via fee revenue distribution
+- Operational capacity planning via volume by day of week
+- International expansion based on cross-border transaction patterns
+
+---
+
+### Page 3 — Risk & Credit
+
+![Risk & Credit](powerbi/screenshots/page3_risk_credit.png)
+
+**What it shows**: Credit quality, delinquency, and loan portfolio health across segments and loan types.
+
+**Key metrics**: 49.39% delinquency rate, average credit score of 568.40 (fair bucket), average utilization of 49.59%, $663.86M in total outstanding balance.
+
+**Visuals**: Credit score distribution by country, delinquency rate by segment, delinquency by utilization bucket, DPD distribution by loan type, loan portfolio composition by type and status.
+
+**Business questions answered**: Q5, Q6, Q7, Q8, Q23
+
+**Note on Q7**: No significant relationship between credit utilization and delinquency was found — rates are uniform across all utilization buckets (~48–51%). This is consistent with the synthetic nature of the dataset.
+
+**Note on Q23**: Paid Off loans show no outstanding balance by definition and do not appear in the portfolio composition visual. This is correct behavior — those loans no longer represent active exposure.
+
+**Decisions it can support**:
+- Credit policy tightening based on delinquency rates by segment
+- Loan provisioning and write-off planning via DPD distribution
+- Portfolio rebalancing based on loan type composition
+- Country-level credit risk monitoring
+
+---
+
+### Page 4 — Customer & Engagement
+
+![Customer & Engagement](powerbi/screenshots/page4_customer_engagement.png)
+
+**What it shows**: Customer acquisition trends, demographic distribution, digital adoption, and product preferences.
+
+**Key metrics**: 49.15% mobile adoption rate, 40.58% digital preferred rate, 30.03 average monthly logins, 949 active digital customers.
+
+**Visuals**: Monthly acquisition trend, age distribution by segment, mobile adoption by segment, digital vs branch preference by age group, most popular account types.
+
+**Business questions answered**: Q11, Q12, Q20, Q21, Q22
+
+**Decisions it can support**:
+- Digital channel investment based on adoption rates by segment
+- Targeted onboarding campaigns based on age and channel preference
+- Product development priorities based on account type popularity
+- Acquisition strategy based on monthly registration trends
+
+---
+
+## Key Findings
+
+- The customer base is evenly distributed across 7 LATAM countries with no dominant market.
+- Average credit score of 568 falls in the `fair` bucket across all countries — suggesting a mid-risk customer base with room for credit product growth.
+- Mobile adoption is ~49% across all segments — digital channels have significant room to grow, especially in older age groups.
+- Fee revenue is distributed evenly across channels (~$15–18M each) with no single dominant channel.
+- Education and Business loans generate the highest interest income ($168M and $167M respectively).
+- Credit Card is the most popular account type (4,170 accounts), followed closely by Savings (4,143).
+
+For detailed answers to all 24 business questions with exact figures, refer to [BUSINESS_QUESTIONS.md](BUSINESS_QUESTIONS.md).
+
+---
+
+## Assumptions & Design Decisions
+
+For full documentation of data quality decisions, NULL handling strategy, bucketing definitions, and Gold layer design rationale, refer to [EDA.md](EDA.md).
+
+Key assumptions:
+- **Currency**: All amounts are converted to USD using fixed exchange rates as of 2026-05-20. No real-time FX conversion is applied.
+- **Revenue**: Fee revenue counts only `completed` transactions of type `fee`. Interest income uses `principal × (interest_rate / 100) × (term_months / 12)` as a simplified annualized proxy.
+- **International transactions**: A transaction is international when its currency does not match the customer's country default currency (e.g. CO → COP). USD transactions are international for all 7 countries.
+- **Active customer**: Has at least one open account and logged in within the last 90 days.
+- **Paid-off loans**: Excluded from outstanding balance metrics — they no longer represent active exposure.
+
+---
 
 ## Git Tags (Milestones)
 
-Submit your work incrementally:
+| Tag | Milestone |
+|-----|-----------|
+| `v0.1.0-bronze` | Bronze layer complete |
+| `v0.2.0-silver` | Silver layer complete |
+| `v0.3.0-gold` | Gold layer complete |
+| `v0.4.0-powerbi` | PowerBI dashboard complete |
+| `v1.0.0` | Final submission |
 
-```bash
-git tag -a v0.1.0-bronze -m "Bronze layer complete"
-git tag -a v0.2.0-silver -m "Silver layer complete"
-git tag -a v0.3.0-gold -m "Gold layer complete"
-git tag -a v0.4.0-powerbi -m "PowerBI dashboard complete"
-git tag -a v1.0.0 -m "Final submission"
-```
+---
 
 ## Cleanup
 
@@ -220,10 +414,11 @@ docker compose down -v
 docker compose down -v --rmi local
 ```
 
+---
+
 ## Participant
 
 - **Name**: Luciano Duarte
 - **Email**: luchi94dmicrosoft@gmail.com
 - **City**: Empalme Sauce, Canelones, Uruguay
 - **Cohort**: Qversity 2026
-

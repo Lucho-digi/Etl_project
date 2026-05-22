@@ -88,6 +88,213 @@ A few terms that appear throughout the analytics needed explicit definitions, si
 
 ## 5. Net Result
 
-After all cleaning and filtering, the dataset contains **3,924 customers** with full, consistent information across all related tables. Every customer in the final dataset has a valid account, and every transaction and loan can be traced back to a known customer.
+After all cleaning and filtering, the dataset contains customers with full, consistent information across all related tables. Every customer in the final dataset has a valid account, and every transaction and loan can be traced back to a known customer.
 
 The data quality rules are enforced automatically — if new data arrives with the same problems, the pipeline catches and handles them the same way without manual intervention.
+
+
+## 6. Gold Layer — Design Decisions
+
+The Gold layer is built on top of clean Silver data and exists solely to answer business 
+questions. No cleaning happens here — if something looks wrong in Gold, the fix belongs 
+in Silver. Each model has a clearly defined grain and is designed to be loaded directly 
+into PowerBI without requiring additional joins or calculations in the BI layer.
+
+The 7 models collectively cover all 24 business questions. Metrics that appear in multiple 
+models (like `age_bucket` and `interest_income`) use identical logic across all of them 
+to ensure consistent numbers regardless of which model PowerBI queries.
+
+---
+
+### 6.1 gold_customer_summary
+
+**Grain**: One row per customer.
+
+**Source tables**: `dim_customers`, `fact_accounts`, `fact_loans`
+
+**Business questions answered**: Q9, Q10, Q11, Q12, Q13, Q14, Q24
+
+This is the central demographic model. Most of the fields come straight from 
+`dim_customers` already clean from Silver — the work here is in the calculated fields.
+
+`age` and `age_bucket` are calculated here rather than Silver because age changes 
+every day. Storing it in Silver would mean running Silver every day just to keep 
+ages current, which doesn't make sense. Same reasoning applies to `tenure_months`.
+
+`age_bucket` uses generational demographic brackets (18-24, 25-34, 35-44, 45-54, 
+55-64, 65+) because each range reflects a distinct life stage with different financial 
+needs. Under 18 returns null — not expected in the dataset but handled defensively.
+
+`risk_bucket` divides the 0-100 risk score into 4 equal ranges of 25 points. There's 
+no external standard for this score, so equal intervals were the simplest defensible 
+choice. Both the raw score and the bucket are kept so PowerBI can show either depending 
+on the visual.
+
+`num_products` is the sum of accounts and loans per customer. It's calculated here 
+rather than in a separate model so Q24 (average products by segment) doesn't require 
+an extra join in PowerBI. Closed accounts and paid-off loans are included — a customer 
+who had 3 accounts and closed 2 still has a history of 3 products.
+
+---
+
+### 6.2 gold_financial_summary
+
+**Grain**: One row per customer.
+
+**Source tables**: `dim_customers`, `fact_accounts`, `fact_transactions`, `fact_loans`
+
+**Business questions answered**: Q1, Q2, Q4
+
+Revenue in this dataset comes from two sources: fees on completed transactions, 
+and estimated interest income from active loans. Only `completed` transactions 
+of type `fee` count — pending, failed, and reversed are excluded because they 
+don't represent realized revenue.
+
+Interest income is estimated as `principal × (interest_rate / 100) × (term_months / 12)`. 
+This is a simplified annualized proxy — proper accrual accounting would require 
+a time-series model tracking each payment period, which is out of scope. Only 
+`current` and `delinquent` loans are included; `paid_off` loans are historical 
+and `default` loans are written off.
+
+`fee_revenue` and `interest_income` are kept separate alongside `total_revenue` 
+so PowerBI can break down revenue by source without recalculating. `total_balance` 
+is aggregated at customer level so Q2 (total balances by country) is a simple 
+SUM in PowerBI.
+
+---
+
+### 6.3 gold_transaction_summary
+
+**Grain**: One row per transaction.
+
+**Source tables**: `fact_transactions`, `dim_customers`, `dim_date`
+
+**Business questions answered**: Q3, Q15, Q16, Q17, Q18, Q19
+
+This is the most granular Gold model — it keeps one row per transaction rather 
+than aggregating, so PowerBI can slice by any combination of channel, type, 
+date, category, or segment without losing flexibility.
+
+`day_of_week` and `day_name` are joined from `dim_date` rather than derived 
+inline to keep the model consistent with the date dimension and avoid 
+recalculating the same logic in multiple places.
+
+`is_international` flags transactions where the currency doesn't match the 
+customer's country default (CO → COP, UY → UYU, etc.). USD and EUR are 
+therefore international for all 7 countries — this definition was confirmed 
+with the project specification, which defines international as any currency 
+that doesn't match the local one.
+
+`is_failed` is a direct boolean from `status = 'failed'` — no CASE WHEN needed. 
+PowerBI can then calculate failure rate as `SUM(is_failed) / COUNT(*)` by channel 
+for Q18.
+
+`customer_segment` and `country` are denormalized from `dim_customers` into this 
+model to avoid forcing PowerBI to join two large tables at report time.
+
+---
+
+### 6.4 gold_loan_summary
+
+**Grain**: One row per loan.
+
+**Source tables**: `fact_loans`, `dim_customers`
+
+**Business questions answered**: Q5, Q7, Q8, Q23
+
+`dpd_bucket` groups `days_past_due` into current/1-30/31-60/61-90/90+ following 
+the standard delinquency buckets defined in Section 9.5. `paid_off` loans return 
+NULL for this field — they have no meaningful DPD. Both the raw `days_past_due` 
+and the bucket are kept for the same reason as risk scores: PowerBI may need either.
+
+`is_delinquent` flags loans in `delinquent` or `default` status. This makes Q5 
+(delinquency rate by segment) a simple `AVG(is_delinquent)` in PowerBI rather 
+than a CASE WHEN at report time.
+
+`interest_income` uses the same formula as `gold_financial_summary` to ensure 
+consistent numbers if both models are queried in the same dashboard. The formula 
+is applied per loan here rather than per customer, which allows Q4 (interest income 
+by loan type) to be answered by grouping on `type`.
+
+`principal` and `outstanding_balance` are both included for Q23 — principal 
+shows the original portfolio size, outstanding shows what remains. The difference 
+between the two reflects repayment progress.
+
+---
+
+### 6.5 gold_credit_summary
+
+**Grain**: One row per customer.
+
+**Source tables**: `fact_credit_info`, `dim_customers`
+
+**Business questions answered**: Q6, Q7
+
+`credit_score_bucket` follows FICO-style ranges (poor/fair/good/very_good/exceptional) 
+as defined in Section 9.3. NULL credit scores — those that were sentinel values 
+cleaned in Silver (~10.3% of customers) — remain NULL and are not bucketed. 
+Forcing them into a category would misrepresent the data.
+
+`utilization_bucket` maps utilization percentage to six ranges from very_low to 
+maxed as defined in Section 9.4. Both the raw percentage and the bucket are kept 
+for the same reason as credit scores.
+
+`bankruptcy_flag`, `late_payments_12m`, and `inquiries_6m` are included alongside 
+utilization to support Q7 (relationship between utilization and delinquency). 
+These fields provide the credit behavior context needed to cross-analyze with 
+loan delinquency from `gold_loan_summary`.
+
+---
+
+### 6.6 gold_digital_summary
+
+**Grain**: One row per customer.
+
+**Source tables**: `dim_customers`, `fact_digital_engagement`
+
+**Business questions answered**: Q20, Q21
+
+`age` and `age_bucket` are recalculated here using the same logic as 
+`gold_customer_summary`. This is a conscious duplication — the alternative 
+would be joining `gold_digital_summary` with `gold_customer_summary` in PowerBI 
+every time Q21 (digital vs branch by age) is visualized, which adds unnecessary 
+complexity at report time.
+
+`is_digital_preferred` flags customers whose `preferred_channel` is `mobile` 
+or `web`. This gives PowerBI a clean binary split for Q21 without needing 
+a CASE WHEN in the report layer.
+
+`is_active_digital` flags customers who logged in within the last 90 days. 
+This distinguishes between customers who registered for digital channels 
+and those who actually use them — a customer can have `mobile_app_registered = true` 
+but not have logged in for months.
+
+`days_since_last_login` is NULL for customers with no login history. This is 
+treated as "never logged in" rather than "unknown" as defined in Section 12.
+
+---
+
+### 6.7 gold_product_summary
+
+**Grain**: One row per account.
+
+**Source tables**: `fact_accounts`, `dim_customers`
+
+**Business questions answered**: Q22
+
+This is the simplest Gold model — most fields come directly from `fact_accounts` 
+with no transformation needed. The only calculated field is `account_age_months`, 
+kept in Gold for the same reason as `tenure_months` in `gold_customer_summary` — 
+it changes daily and would go stale in Silver.
+
+`account_status` is included to let PowerBI distinguish active from closed accounts 
+when measuring popularity — closed accounts are still relevant for historical trends 
+but shouldn't dominate current product mix analysis.
+
+`customer_segment` and `country` are denormalized from `dim_customers` to enable 
+cross-dimensional slicing (e.g. which account types are most popular among premium 
+customers in Mexico) without extra joins in PowerBI.
+
+
+Q3 — Revenue by channel reflects fee revenue only, as interest income 
+is derived from loans and cannot be attributed to a specific transaction channel.
