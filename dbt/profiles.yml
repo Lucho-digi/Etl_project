@@ -1,12 +1,12 @@
-qversity:
+elt_platform:
   target: dev
   outputs:
     dev:
       type: postgres
       host: postgres
-      user: qversity-admin
-      password: qversity-admin
+      user: elt_platform-admin
+      password: elt_platform-admin
       port: 5432
-      dbname: qversity
+      dbname: elt_platform
       schema: public
       threads: 1

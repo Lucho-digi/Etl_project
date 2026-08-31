@@ -27,7 +27,7 @@ def create_gold_schema():
 
 
 default_args = {
-    "owner": "qversity",
+    "owner": "elt_platform",
     "depends_on_past": False,
     "start_date": datetime(2026, 1, 1),
     "email_on_failure": False,

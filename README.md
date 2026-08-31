@@ -1,4 +1,4 @@
-# Qversity v2 — Fintech/Banking Data Engineering Project
+# elt_platform v2 — Fintech/Banking Data Engineering Project
 
 A containerized ELT data platform using Docker Compose with Airflow, PostgreSQL, PySpark, dbt, and PowerBI.
 
@@ -34,12 +34,12 @@ S3 (JSON) → Airflow → Bronze → PySpark (Silver) → dbt (Silver) → dbt (
 ## Project Structure
 
 ```
-qversity-data-2026-montevideo-lucianoduarte/
+Etl_project/
 ├── dags/                     # Airflow DAG definitions
 |   ├── bronze_dag.py         # DAG for Bronze layer ingestion
 |   ├── silver_dag.py         # DAG for Silver layer transformations
 |   ├── gold_dag.py           # DAG for Gold layer transformations
-│   └── qversity_pipeline.py  # Main DAG orchestrating the pipeline
+│   └── elt_platform_pipeline.py  # Main DAG orchestrating the pipeline
 ├── spark/                    # PySpark scripts
 ├── dbt/                      # dbt project
 |   ├── macros/               # dbt macros
@@ -79,8 +79,8 @@ qversity-data-2026-montevideo-lucianoduarte/
 
 1. **Clone the repository and setup environment**:
 ```bash
-git clone git@github.com:Lucho-digi/qversity-data-2026-montevideo-lucianoduarte.git
-cd qversity-data-2026-montevideo-lucianoduarte
+git clone git@github.com:Lucho-digi/Etl_project.git
+cd Etl_project
 cp env.example .env
 ```
 Fill in the required environment variables in `.env` before starting. It's recommended to use a dedicated `POSTGRES_PORT` to avoid conflicts with any existing local PostgreSQL installation — if you change it, update `docker-compose.yml` accordingly.
@@ -102,7 +102,7 @@ Define user and password in `.env` before starting. Default credentials for test
 
 5. **Trigger the pipeline**:
 ```bash
-docker compose exec airflow airflow dags trigger qversity_pipeline
+docker compose exec airflow airflow dags trigger elt_platform_pipeline
 ```
 
 ---
@@ -113,7 +113,7 @@ docker compose exec airflow airflow dags trigger qversity_pipeline
 |---------|-----------------|-------------|
 | Airflow UI | http://localhost:8080 | define in .env |
 | PostgreSQL | localhost:5432 | define in .env |
-| Database | qversity | — |
+| Database | elt_platform | — |
 
 ---
 
@@ -166,7 +166,7 @@ docker compose exec airflow python -c "from pyspark.sql import SparkSession; pri
 ### Database Access
 ```bash
 # Connect to PostgreSQL
-docker compose exec postgres psql -U qversity-admin -d qversity
+docker compose exec postgres psql -U elt_platform-admin -d elt_platform
 
 # View schemas
 \dn
@@ -369,12 +369,3 @@ docker compose down -v
 # Remove images
 docker compose down --rmi local
 ```
-
----
-
-## Participant
-
-- **Name**: Luciano Duarte
-- **Email**: luchi94dmicrosoft@gmail.com
-- **City**: Empalme Sauce, Canelones, Uruguay
-- **Cohort**: Qversity 2026

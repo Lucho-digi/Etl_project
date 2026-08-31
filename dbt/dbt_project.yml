@@ -1,8 +1,8 @@
-name: 'qversity'
+name: 'elt_platform'
 version: '2.0.0'
 config-version: 2
 
-profile: 'qversity'
+profile: 'elt_platform'
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
@@ -19,7 +19,7 @@ clean-targets:
   - "/tmp/dbt-logs"
 
 models:
-  qversity:
+  elt_platform:
     # Bronze layer - raw JSON data staging
     bronze:
       +materialized: table
@@ -34,5 +34,5 @@ models:
       +schema: gold
 
 seeds:
-  qversity:
+  elt_platform:
     +schema: raw

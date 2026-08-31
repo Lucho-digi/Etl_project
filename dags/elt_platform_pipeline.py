@@ -3,7 +3,7 @@ from airflow import DAG
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 default_args = {
-  "owner": "qversity",
+  "owner": "elt_platform",
   "depends_on_past": False,
   "start_date": datetime(2026, 1, 1),
   "email_on_failure": False,
@@ -13,12 +13,12 @@ default_args = {
 }
 
 with DAG(
-  "qversity_pipeline",
+  "elt_platform_pipeline",
   default_args=default_args,
   description="Pipeline to orchestrate the execution of bronze, silver and gold layers for Fintech/Banking ELT Pipeline",
   schedule_interval=None,
   catchup=False,
-  tags=["orchestrator", "qversity", "bronze", "silver", "gold"],
+  tags=["orchestrator", "elt_platform", "bronze", "silver", "gold"],
 ) as dag:
 
   trigger_bronze = TriggerDagRunOperator(
